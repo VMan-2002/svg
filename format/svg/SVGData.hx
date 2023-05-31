@@ -25,8 +25,16 @@ typedef StringMap<T> = Hash<T>;
 #end
 
 typedef SVGTransform = {
-	type:String,
+	type:SVGTransformType,
 	data:String
+}
+
+enum SVGTransformType {
+	unknown;
+	matrix;
+	rotate;
+	translate;
+	scale;
 }
 
 class SVGData extends Group {
@@ -96,27 +104,45 @@ class SVGData extends Group {
 			inTrans = mMultiMatch.matched(1).trim();
 		}
 
-		var addType = "";
+		var addType = SVGTransformType.unknown;
 
 		if (mTranslateMatch.match(inTrans)) {
-			addType = "translate";
+			addType = SVGTransformType.translate;
 		} else if (mScaleMatch.match(inTrans)) {
-			addType = "scale";
+			addType = SVGTransformType.scale;
 		} else if (mRotationMatch.match(inTrans)) {
-			addType = "rotate";
+			addType = SVGTransformType.rotate;
 		} else if (mMatrixMatch.match(inTrans)) {
-			addType = "matrix";
+			addType = SVGTransformType.matrix;
 		} else {
 			trace("Warning, unknown transform:" + inTrans);
 		}
-		if (addType != "") {
+		if (addType != SVGTransformType.unknown) {
 			if (stillCopy)
 				list = list.copy();
 			var transToAdd = {
 				type: addType,
 				data: inTrans
 			};
-			list.push(transToAdd);
+			// Rotates go last and in reverse order
+			var insertPoint = list.length;
+			while (insertPoint != 0) {
+				if (list[insertPoint - 1].type == SVGTransformType.rotate) {
+					insertPoint -= 1;
+				} else {
+					break;
+				}
+			}
+			list.insert(insertPoint, transToAdd);
+
+			// Spare whatevers
+			/*if (addType == "rotate") {
+					list.insert(0, transToAdd);
+				} else {
+					list.push(transToAdd);
+			}*/
+
+			// list.push(transToAdd);
 			// make rotations (and NOTHING ELSE(?)) happen in reverse order
 			/*if (transToAdd.type == "rotate") {
 				var scan = list.length - 2;
@@ -134,6 +160,10 @@ class SVGData extends Group {
 		if (nextTrans != "") {
 			return addTransform(list, nextTrans);
 		}
+		var listStr = new Array<String>();
+		for (i in 0...list.length)
+			listStr.push(list[i].data);
+		// trace("List order: " + listStr.join(", "));
 		return list;
 	}
 
